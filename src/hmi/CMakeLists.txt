@@ -6,7 +6,11 @@ pico_set_program_version(hmi "0.1")
 pico_enable_stdio_uart(hmi 0)
 pico_enable_stdio_usb(hmi 1)
 
-target_link_libraries(hmi common_lib pico_stdlib)
+target_link_libraries(hmi PUBLIC
+    common_lib
+    pico_stdlib
+    bsp
+    lvgl)
 
 target_include_directories(hmi PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
