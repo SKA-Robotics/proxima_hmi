@@ -33,5 +33,10 @@ project(proxima-hmi C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-add_subdirectory(src)
+# FreeRTOS configuration
+set(FREERTOS_KERNEL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib/FreeRTOS-Kernel)
+set(FREERTOS_CONFIG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+include(FreeRTOS_Kernel_import.cmake)
+
 add_subdirectory(lib)
+add_subdirectory(src)
