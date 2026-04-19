@@ -1,4 +1,4 @@
-add_executable(hmi main.cpp)
+add_executable(hmi main.c)
 
 pico_set_program_name(hmi "Proxima HMI")
 pico_set_program_version(hmi "0.1")

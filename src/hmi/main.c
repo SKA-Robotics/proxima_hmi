@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "common.hpp"
+#include "common.h"
 #include "pico/stdlib.h"
 
 int main()
