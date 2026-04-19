@@ -10,7 +10,10 @@ target_link_libraries(hmi PUBLIC
     common_lib
     pico_stdlib
     bsp
-    lvgl)
+    lvgl
+    FreeRTOS-Kernel
+    FreeRTOS-Kernel-Heap4
+)
 
 target_include_directories(hmi PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 
