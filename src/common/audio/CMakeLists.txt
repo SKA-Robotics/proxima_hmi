@@ -3,6 +3,7 @@ add_library(audio_lib STATIC
     src/audio_decoder.c
     src/audio_format.c
     src/audio_result.c
+    src/audio_system.c
 )
 
 target_include_directories(audio_lib PUBLIC include)
