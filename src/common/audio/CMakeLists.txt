@@ -1,4 +1,5 @@
 add_library(audio_lib STATIC
+    src/audio_buffer.c
     src/audio_result.c
 )
 
