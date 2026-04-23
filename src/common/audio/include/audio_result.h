@@ -12,6 +12,7 @@ typedef enum {
 
     // Audio buffer results
     AUDIO_RESULT_BUFFER_NOT_INITIALIZED = 3,
+    AUDIO_RESULT_BUFFER_EMPTY = 4
 } audio_result_t;
 
 char *audio_result_to_string(audio_result_t result);
