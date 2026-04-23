@@ -1,7 +1,6 @@
 #include "audio_decoder.h"
 #include "common_result.h"
 
-
 static inline void inplace_unpack_mono_lq(uint32_t *buffer, size_t samples_count) {
     uint8_t *input = (uint8_t *)buffer;
 

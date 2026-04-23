@@ -1,7 +1,8 @@
 #include <stdlib.h>
 
-#include "common_result.h"
 #include "audio_buffer.h"
+#include "common_result.h"
+
 
 audio_result_t audio_buffer_create(audio_buffer_t *buffer, const size_t max_size) {
     if (buffer == NULL || max_size == 0) {
