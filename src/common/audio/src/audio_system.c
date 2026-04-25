@@ -9,6 +9,8 @@
 #include "audio_system.h"
 #include "common_result.h"
 
+#include "bsp_i2s.h"
+
 struct audio_system {
     // Queues
     QueueHandle_t audio_empty_buffers_queue;
@@ -298,7 +300,9 @@ static void audio_system_playback_task(void *param) {
             continue;
         }
 
-        // @TODO: play buffer
+        if (buffer->size > 0) {
+            i2sSoundOutputDmaBlocking(buffer->buffer, buffer->size);
+        }
 
         audio_buffer_reset(buffer);
 

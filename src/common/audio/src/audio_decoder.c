@@ -38,13 +38,13 @@ audio_result_t audio_decoder_unpack_inplace(audio_buffer_t *buffer, audio_flags_
 
     uint32_t *output = buffer->buffer;
 
-    if (flags & AUDIO_FLAG_MONO_LQ) {
+    if (flags == AUDIO_FLAG_MONO_LQ) {
         inplace_unpack_mono_lq(output, buffer->size);
-    } else if (flags & AUDIO_FLAG_MONO_HQ) {
+    } else if (flags == AUDIO_FLAG_MONO_HQ) {
         inplace_unpack_mono_hq(output, buffer->size);
-    } else if (flags & AUDIO_FLAG_STEREO_LQ) {
+    } else if (flags == AUDIO_FLAG_STEREO_LQ) {
         inplace_unpack_stereo_lq(output, buffer->size);
-    } else if (flags & AUDIO_FLAG_STEREO_HQ) {
+    } else if (flags == AUDIO_FLAG_STEREO_HQ) {
         inplace_unpack_stereo_hq(output, buffer->size);
     } else {
         return AUDIO_RESULT_INVALID_ARGUMENT;

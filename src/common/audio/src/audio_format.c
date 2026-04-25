@@ -3,15 +3,15 @@
 #include "audio_format.h"
 
 inline size_t audio_format_raw_bytes_per_sample(audio_flags_t flags) {
-    if (flags & AUDIO_FLAG_STEREO_HQ) {
+    if (flags == AUDIO_FLAG_STEREO_HQ) {
         return sizeof(uint32_t);
     }
 
-    if ((flags & AUDIO_FLAG_STEREO_LQ) || (flags & AUDIO_FLAG_MONO_HQ)) {
+    if (flags == AUDIO_FLAG_STEREO_LQ || flags == AUDIO_FLAG_MONO_HQ) {
         return sizeof(uint16_t);
     }
 
-    if (flags & AUDIO_FLAG_MONO_LQ) {
+    if (flags == AUDIO_FLAG_MONO_LQ) {
         return sizeof(uint8_t);
     }
 
