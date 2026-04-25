@@ -16,7 +16,8 @@ typedef enum {
 
     // Audio system results
     AUDIO_RESULT_SYSTEM_NOT_INITIALIZED = 5,
-    AUDIO_RESULT_BUSY = 6
+    AUDIO_RESULT_BUSY = 6,
+    AUDIO_RESULT_TIMEOUT = 7
 } audio_result_t;
 
 char *audio_result_to_string(audio_result_t result);

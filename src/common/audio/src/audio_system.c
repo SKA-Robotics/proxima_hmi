@@ -1,17 +1,28 @@
-#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "semphr.h"
 
 #include "audio_buffer.h"
 #include "audio_system.h"
 #include "common_result.h"
 
 struct audio_system {
+    // Queues
     QueueHandle_t audio_empty_buffers_queue;
     QueueHandle_t audio_full_buffers_queue;
+
+    // Playback task
+    TaskHandle_t playback_task;
+    volatile bool playback_stop_requested;
+
+    // Streams
+    SemaphoreHandle_t lock;
+    audio_stream_t *active_stream;
+    uint32_t next_playback_id;
+    uint32_t active_playback_id;
 };
 
 static bool s_initialized = false;
@@ -19,10 +30,14 @@ static struct audio_system s_system;
 
 static const size_t BUFFERS_COUNT = 3;
 static const size_t BUFFER_SIZE = 2000; // 125ms of playback
+static const size_t TASK_TEARDOWN_TIMEOUT = 100;
 
 static audio_result_t audio_system_init_buffer_pool();
 static audio_result_t audio_system_teardown_queue(QueueHandle_t queue);
 static audio_result_t audio_system_teardown_queues();
+static audio_result_t audio_system_teardown_playback();
+static audio_result_t audio_system_drain_buffers();
+static void audio_system_playback_task(void *param);
 
 audio_result_t audio_system_init() {
     if (s_initialized) {
@@ -31,6 +46,7 @@ audio_result_t audio_system_init() {
 
     memset(&s_system, 0, sizeof(s_system));
 
+    // Queues
     s_system.audio_empty_buffers_queue = xQueueCreate(BUFFERS_COUNT, sizeof(audio_buffer_t *));
     if (s_system.audio_empty_buffers_queue == NULL) {
         return AUDIO_RESULT_OUT_OF_MEMORY;
@@ -44,6 +60,23 @@ audio_result_t audio_system_init() {
 
     RESULT_CHECK(audio_system_init_buffer_pool(), AUDIO_RESULT_SUCCESS);
 
+    // Playback task
+    s_system.playback_stop_requested = false;
+
+    BaseType_t ok = xTaskCreate(audio_system_playback_task, "audio_playback", 512, NULL,
+                                tskIDLE_PRIORITY + 2, &s_system.playback_task);
+
+    if (ok != pdPASS) {
+        audio_system_teardown_queues();
+        return AUDIO_RESULT_OUT_OF_MEMORY;
+    }
+
+    // Streams
+    s_system.lock = xSemaphoreCreateMutex();
+    s_system.active_stream = NULL;
+    s_system.next_playback_id = 1;
+    s_system.active_playback_id = 0;
+
     s_initialized = true;
 
     return AUDIO_RESULT_SUCCESS;
@@ -54,10 +87,51 @@ audio_result_t audio_system_deinit() {
         return AUDIO_RESULT_SYSTEM_NOT_INITIALIZED;
     }
 
+    RESULT_CHECK(audio_system_teardown_playback(), AUDIO_RESULT_SUCCESS);
     RESULT_CHECK(audio_system_teardown_queues(), AUDIO_RESULT_SUCCESS);
 
     s_initialized = false;
 
+    return AUDIO_RESULT_SUCCESS;
+}
+
+audio_result_t audio_system_play_stream(audio_stream_t *stream, bool force,
+                                        uint32_t *out_playback_id) {
+    if (!s_initialized) {
+        return AUDIO_RESULT_SYSTEM_NOT_INITIALIZED;
+    }
+
+    if (stream == NULL) {
+        return AUDIO_RESULT_INVALID_ARGUMENT;
+    }
+
+    if (xSemaphoreTake(s_system.lock, pdMS_TO_TICKS(10)) != pdTRUE) {
+        return AUDIO_RESULT_OUT_OF_MEMORY;
+    }
+
+    if (s_system.active_stream != NULL && !force) {
+        xSemaphoreGive(s_system.lock);
+        return AUDIO_RESULT_BUSY;
+    }
+
+    if (s_system.active_stream != NULL && force) {
+        // @TODO: stop feeder task
+        audio_stream_close(s_system.active_stream);
+        s_system.active_stream = NULL;
+        audio_system_drain_buffers();
+    }
+
+    // @TODO: start feeder task
+
+    s_system.active_stream = stream;
+    s_system.active_playback_id = s_system.next_playback_id;
+    s_system.next_playback_id++;
+
+    if (out_playback_id != NULL) {
+        *out_playback_id = s_system.active_playback_id;
+    }
+
+    xSemaphoreGive(s_system.lock);
     return AUDIO_RESULT_SUCCESS;
 }
 
@@ -117,4 +191,57 @@ static audio_result_t audio_system_teardown_queues() {
     s_system.audio_full_buffers_queue = NULL;
 
     return AUDIO_RESULT_SUCCESS;
+}
+
+static audio_result_t audio_system_teardown_playback() {
+    s_system.playback_stop_requested = true;
+
+    for (size_t i = 0; i < TASK_TEARDOWN_TIMEOUT / 10; i++) {
+        if (s_system.playback_task == NULL) {
+            return AUDIO_RESULT_SUCCESS;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    return AUDIO_RESULT_TIMEOUT;
+}
+
+static audio_result_t audio_system_drain_buffers() {
+    audio_buffer_t *buffer = NULL;
+
+    while (xQueueReceive(s_system.audio_full_buffers_queue, &buffer, 0) == pdPASS) {
+        if (buffer != NULL) {
+            audio_buffer_reset(buffer);
+            (void)xQueueSend(s_system.audio_empty_buffers_queue, &buffer, 0);
+            buffer = NULL;
+        }
+    }
+
+    return AUDIO_RESULT_SUCCESS;
+}
+
+static void audio_system_playback_task(void *param) {
+    (void)param;
+
+    for (;;) {
+        if (s_system.playback_stop_requested) {
+            s_system.playback_task = NULL;
+            break;
+        }
+
+        audio_buffer_t *buffer = NULL;
+        BaseType_t got =
+            xQueueReceive(s_system.audio_full_buffers_queue, &buffer, pdMS_TO_TICKS(10));
+
+        if (got != pdTRUE || buffer == NULL) {
+            continue;
+        }
+
+        // @TODO: play buffer
+
+        audio_buffer_reset(buffer);
+
+        (void)xQueueSend(s_system.audio_empty_buffers_queue, &buffer, 0);
+    }
 }
